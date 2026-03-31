@@ -1,37 +1,39 @@
 import unittest
 import naukri
-import os
 import io
-from pypdf import PdfReader, PdfWriter
+from pathlib import Path
+from pypdf import PdfWriter
 
 
 class Test(unittest.TestCase):
     def test_naukri(self):
-        (status, driver) = naukri.naukriLogin(headless=True)
-        if not status:
-            print(driver.page_source)
+        """Smoke test for login initialization (expected to fail without credentials)"""
+        status, driver = naukri.naukriLogin(headless=True)
         naukri.tearDown(driver)
+        # We expect failure given current 'your_naukri_username' in constants
         self.assertFalse(status)
 
     
     def test_update_resume(self):
-        originalResumePath = naukri.originalResumePath
-        modifiedResumePath = naukri.modifiedResumePath
-        # Ensure the directory for the resume exists
-        os.makedirs(os.path.dirname(originalResumePath), exist_ok=True)
-        os.makedirs(os.path.dirname(modifiedResumePath), exist_ok=True)
+        """Verify PDF modification logic"""
+        original_resume_path = naukri.originalResumePath
+        modified_resume_path = naukri.modifiedResumePath
+        
+        # Ensure directories exist
+        original_resume_path.parent.mkdir(parents=True, exist_ok=True)
+        modified_resume_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create a simple PDF file
-        packet = io.BytesIO()
+        # Create a dummy PDF file
         writer = PdfWriter()
         writer.add_blank_page(width=72, height=72)
-        with open(originalResumePath, "wb") as f:
+        with open(original_resume_path, "wb") as f:
             writer.write(f)
 
         result_path = naukri.UpdateResume()
-        # Check if the modified PDF file is created
-        self.assertTrue(os.path.exists(result_path))
-        self.assertIn(modifiedResumePath, result_path)
+        
+        # Verification
+        self.assertTrue(Path(result_path).exists())
+        self.assertIn(str(modified_resume_path), str(result_path))
 
 
 
