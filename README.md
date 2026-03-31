@@ -2,16 +2,17 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Made with Python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
+[![Stealth Mode](https://img.shields.io/badge/Stealth%20Mode-Active-blue.svg)](https://github.com/satyajeetramnit/NaukriFlow)
 
-Automate your Naukri profile updates to stay at the top of recruiter searches. **NaukriFlow** "touches" your profile daily, ensuring you appear as a recently active candidate in search results.
+Automate your Naukri profile updates to stay at the top of recruiter searches. **NaukriFlow** "touches" your profile daily with human-like interaction, ensuring you appear as a recently active candidate in search results.
 
 ---
 
 ## ✨ Features
-- **Profile Touching**: Automatically updates your profile (via mobile number/profile refresh) to trigger "Recently Updated" status.
+- **Profile Syncing**: Automatically updates your profile (via mobile number/profile refresh) to trigger "Recently Updated" status.
+- **Stealth Protection**: Built-in `selenium-stealth` integration to bypass bot detection and maintain account safety.
 - **Resume Anti-Hash**: Optionally modifies your PDF resume by adding invisible random characters to bypass "duplicate file" detection.
-- **Headless Support**: Runs in the background without interrupting your work.
-- **Secure Credentials**: Uses environment variables (`.env`) for safe credential management.
+- **Secure Credentials**: Uses environment variables (`.env`) for safe, local credential management.
 
 ## 🛠️ Prerequisites
 - [Python 3.10+](https://www.python.org/downloads/)
@@ -24,7 +25,7 @@ Automate your Naukri profile updates to stay at the top of recruiter searches. *
 Clone the repository and set up a virtual environment:
 
 ```bash
-git clone https://github.com/your-username/NaukriFlow.git
+git clone https://github.com/satyajeetramnit/NaukriFlow.git
 cd NaukriFlow
 
 # Create and activate virtual environment
@@ -37,11 +38,12 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configuration
-Copy the environment template and fill in your details:
+Copy the provided environment template and fill in your details:
 ```bash
 cp .env.example .env
 ```
-Update `.env` with your Naukri credentials and local file paths.
+> [!IMPORTANT]
+> Edit the `.env` file with your Naukri credentials and absolute file paths for your resume.
 
 ### 3. Run the Script
 ```bash
@@ -49,7 +51,7 @@ python naukri.py
 ```
 
 ## 📖 Documentation
-For a deep dive into how **NaukriFlow** works, check out the [DOCUMENTATION.md](DOCUMENTATION.md).
+For a deep dive into the architecture and utility functions of **NaukriFlow**, check out the [DOCUMENTATION.md](DOCUMENTATION.md).
 
 ## 🛡️ Disclaimer
 This script is not affiliated with or endorsed by Naukri.com. It is intended for personal use only. Ensure compliance with Naukri.com’s terms of service. Use responsibly and at your own risk.
