@@ -3,6 +3,7 @@
 """NaukriFlow Daily update - Using Chrome"""
 
 import io
+import json
 import logging
 import os
 import sys
@@ -11,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from random import choice, randint
 from string import ascii_uppercase, digits
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List, Dict
 
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
@@ -32,15 +33,6 @@ from selenium_stealth import stealth
 
 import constants
 
-# --- Configuration paths using pathlib ---
-originalResumePath = Path(constants.ORIGINAL_RESUME_PATH)
-modifiedResumePath = Path(constants.MODIFIED_RESUME_PATH)
-
-# Update your naukri username and password here before running
-username = constants.USERNAME
-password = constants.PASSWORD
-mob = constants.MOBILE
-
 # False if you dont want to add Random HIDDEN chars to your resume
 updatePDF = False
 
@@ -60,8 +52,34 @@ os.environ["WDM_LOCAL"] = "1"
 os.environ["WDM_LOG_LEVEL"] = "0"
 
 
+CURRENT_ACCOUNT_PREFIX = ""
+
+def get_accounts() -> List[Dict]:
+    """Retrieve accounts from accounts.json or fallback to .env."""
+    accounts_file = Path("accounts.json")
+    if accounts_file.exists():
+        try:
+            with open(accounts_file, "r") as f:
+                accounts = json.load(f)
+                if isinstance(accounts, list) and len(accounts) > 0:
+                    return accounts
+        except Exception as e:
+            print(f"Failed to read accounts.json: {e}")
+            
+    # Fallback to single account using .env via constants
+    return [{
+        "username": constants.USERNAME,
+        "password": constants.PASSWORD,
+        "mobile": constants.MOBILE,
+        "original_resume_path": constants.ORIGINAL_RESUME_PATH,
+        "modified_resume_path": constants.MODIFIED_RESUME_PATH
+    }]
+
+
 def log_msg(message: str, level: int = logging.INFO) -> None:
     """Print to console and store to Log"""
+    if CURRENT_ACCOUNT_PREFIX:
+        message = f"[{CURRENT_ACCOUNT_PREFIX}] {message}"
     print(message)
     logging.log(level, message)
 
@@ -287,7 +305,7 @@ def LoadNaukri(headless: bool) -> webdriver.Chrome:
     return driver
 
 
-def naukriLogin(headless=False):
+def naukriLogin(account: dict, headless=False):
     """Open Chrome browser and Login to Naukri.com"""
     status = False
     driver = None
@@ -314,10 +332,10 @@ def naukriLogin(headless=False):
 
         if email_el and pass_el and login_btn:
             email_el.clear()
-            email_el.send_keys(username)
+            email_el.send_keys(account.get("username", ""))
             time.sleep(1)
             pass_el.clear()
-            pass_el.send_keys(password)
+            pass_el.send_keys(account.get("password", ""))
             time.sleep(1)
             login_btn.send_keys(Keys.ENTER)
             time.sleep(3)
@@ -400,8 +418,11 @@ def UpdateProfile(driver: webdriver.Chrome) -> None:
 
 
 
-def UpdateResume():
+def UpdateResume(account: dict):
     try:
+        original_resume_path = Path(account.get("original_resume_path", ""))
+        modified_resume_path = Path(account.get("modified_resume_path", ""))
+        
         # Random text with random location and size
         txt = randomText()
         xloc = randint(700, 1000)  # This ensures that text is 'out of page'
@@ -415,7 +436,7 @@ def UpdateResume():
 
         packet.seek(0)
         new_pdf = PdfReader(packet)
-        with open(originalResumePath, "rb") as f:
+        with open(original_resume_path, "rb") as f:
             existing_pdf = PdfReader(f)
             pagecount = len(existing_pdf.pages)
             print("Found %s pages in PDF" % pagecount)
@@ -429,13 +450,13 @@ def UpdateResume():
             output.add_page(page)
 
             # Save the new resume file
-            with open(modifiedResumePath, "wb") as outputStream:
+            with open(modified_resume_path, "wb") as outputStream:
                 output.write(outputStream)
-            print("Saved modified PDF: %s" % modifiedResumePath)
-            return os.path.abspath(modifiedResumePath)
+            print("Saved modified PDF: %s" % modified_resume_path)
+            return os.path.abspath(modified_resume_path)
     except Exception as e:
         catch(e)
-    return os.path.abspath(originalResumePath)
+    return os.path.abspath(original_resume_path)
 
 
 
@@ -485,35 +506,48 @@ def UploadResume(driver: webdriver.Chrome, resume_path: Union[str, Path]) -> Non
 
 
 def main():
-    log_msg("-----NaukriFlow Script Run Begin-----")
-    driver = None
-    try:
-        status, driver = naukriLogin(headless)
-        if status and driver:
-            UpdateProfile(driver)
-            
-            if originalResumePath.exists():
-                if updatePDF:
-                    resume_path = UpdateResume()
-                    UploadResume(driver, resume_path)
+    global CURRENT_ACCOUNT_PREFIX
+    log_msg("========== NaukriFlow Script Run Begin ==========")
+    
+    accounts = get_accounts()
+    log_msg(f"Found {len(accounts)} account(s) to process.")
+    
+    for idx, account in enumerate(accounts, 1):
+        username = account.get("username", f"Account_{idx}")
+        CURRENT_ACCOUNT_PREFIX = username.split("@")[0] if "@" in username else username
+        
+        log_msg(f"--- Processing Account {idx}/{len(accounts)} ---")
+        
+        driver = None
+        try:
+            status, driver = naukriLogin(account, headless)
+            if status and driver:
+                UpdateProfile(driver)
+                
+                original_resume_path = Path(account.get("original_resume_path", ""))
+                if original_resume_path.exists() and original_resume_path.is_file():
+                    if updatePDF:
+                        resume_path = UpdateResume(account)
+                        UploadResume(driver, resume_path)
+                    else:
+                        UploadResume(driver, str(original_resume_path))
                 else:
-                    UploadResume(driver, originalResumePath)
-            else:
-                log_msg(f"Resume not found at: {originalResumePath}", level=logging.WARNING)
+                    log_msg(f"Resume not found at: {original_resume_path}", level=logging.WARNING)
 
-    except Exception as e:
-        catch(e)
+        except Exception as e:
+            catch(e)
 
-    finally:
-        if driver is not None:
-            try:
-                Logout(driver)
-                time.sleep(2)
-            except Exception as e:
-                log_msg("Error during logout: %s" % e)
-        tearDown(driver)
+        finally:
+            if driver is not None:
+                try:
+                    Logout(driver)
+                    time.sleep(2)
+                except Exception as e:
+                    log_msg(f"Error during logout: {e}")
+            tearDown(driver)
 
-    log_msg("-----NaukriFlow Script Run Ended-----\n")
+    CURRENT_ACCOUNT_PREFIX = ""
+    log_msg("========== NaukriFlow Script Run Ended ==========\n")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,16 @@
+[
+  {
+    "username": "email1@example.com",
+    "password": "your_password_here",
+    "mobile": "1234567890",
+    "original_resume_path": "/absolute/path/to/your/Resume1.pdf",
+    "modified_resume_path": "/absolute/path/to/your/Resume1_modified.pdf"
+  },
+  {
+    "username": "email2@example.com",
+    "password": "your_password_here",
+    "mobile": "0987654321",
+    "original_resume_path": "/absolute/path/to/your/Resume2.pdf",
+    "modified_resume_path": "/absolute/path/to/your/Resume2_modified.pdf"
+  }
+]
