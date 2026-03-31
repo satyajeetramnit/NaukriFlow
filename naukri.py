@@ -352,9 +352,13 @@ def naukriLogin(account: dict, headless=False):
                     return (status, driver)
             
             log_msg("Authentication state uncertain.", level=logging.WARNING)
+            driver.save_screenshot(f"{account.get('username', 'unknown')}_login_failed.png")
+            log_msg("Saved debug screenshot of the failure.")
 
     except Exception as e:
         catch(e)
+        if driver:
+            driver.save_screenshot("exception_login_failed.png")
     return (status, driver)
 
 

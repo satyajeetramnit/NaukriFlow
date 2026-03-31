@@ -47,3 +47,10 @@ jobs:
           RUN_HEADLESS: true
         run: |
           python naukri.py
+          
+      - name: Archive failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: "*.png"
