@@ -154,61 +154,49 @@ def try_click(
         pass
     return False
 
-def Logout(driver):
-    """Logout from Naukri session """
+def Logout(driver: webdriver.Chrome) -> bool:
+    """Logout from Naukri session with modernized selectors"""
 
     try:
-        # -------- Drawer Menu XPaths --------
+        # -------- Drawer/User Menu XPaths --------
         drawer_xpaths = [
+            f"//*[contains({ci('@class')}, 'nI-gNb-drawer')]",
+            f"//*[contains({ci('@class')}, 'header__user-name')]",
             f"//*[contains({ci('@class')}, 'drawer__icon')]",
-            f"//div[contains({ci('@class')}, 'drawer')]"
         ]
 
         for xpath in drawer_xpaths:
-            if is_element_present(driver, By.XPATH, xpath):
-                try:
-                    el = GetElement(driver, xpath, locator="XPATH")
-                    if el:
-                        el.click()
-                        time.sleep(1)
-                        log_msg("Drawer menu opened")
-                        break
-                except Exception as e:
-                    log_msg(f"Drawer open failed ({xpath}): {e}")
-                    continue
+            if try_click(driver, xpath, timeout=5):
+                log_msg("User menu/drawer opened.")
+                time.sleep(1)
+                break
 
         # -------- Logout XPaths --------
         logout_xpaths = [
+            "//a[contains(@href, 'logout')]",
+            "//a[@title='Logout']",
             "//a[@data-type='logoutLink']",
-
-            f"//a[contains({ci('@class')}, 'list-cta') and contains({ci('@title')}, 'logout')]",
-            f"//a[contains({ci('@class')}, 'logout')]",
-            f"//a[contains({ci('@href')}, 'logout')]",
-
             f"//*[contains({ci('text()')}, 'logout')]",
-            f"//*[contains({ci('.')}, 'logout')]",
         ]
 
         for xpath in logout_xpaths:
-            if is_element_present(driver, By.XPATH, xpath):
+            el = get_element(driver, xpath, locator="XPATH", timeout=5, silent=True)
+            if el and el.is_displayed():
                 try:
-                    el = GetElement(driver, xpath, locator="XPATH")
-                    if el:
-                        driver.execute_script("arguments[0].scrollIntoView(true);", el)
-                        time.sleep(0.5)
-                        el.click()
-                        time.sleep(2)
-                        log_msg("Logout Successful")
-                        return True
-                except Exception as e:
-                    log_msg(f"Logout click failed ({xpath}): {e}")
+                    driver.execute_script("arguments[0].scrollIntoView(true);", el)
+                    time.sleep(0.5)
+                    el.click()
+                    log_msg("Logout: SUCCESS")
+                    time.sleep(2)
+                    return True
+                except Exception:
                     continue
 
-        log_msg("Logout button not found")
+        log_msg("Logout button not found.", level=logging.DEBUG)
         return False
 
     except Exception as e:
-        log_msg(f"Logout error: {e}")
+        catch(e)
         return False
     
 def ci(xpath_part: str) -> str:
@@ -337,57 +325,53 @@ def naukriLogin(headless=False):
 
 def UpdateProfile(driver: webdriver.Chrome) -> None:
     try:
-        mob_xpath = "//*[@name='mobile'] | //*[@id='mob_number']"
-        save_xpath = "//button[@type='submit' and contains(@value, 'Save')] | //*[@id='saveBasicDetailsBtn']"
+        # Modernized XPaths for Profile Page
+        mob_xpath = "//*[@name='mobile'] | //*[@id='mob_number'] | //input[contains(@placeholder, 'mobile')]"
+        save_xpath = "//button[@id='saveBasicDetailsBtn'] | //button[@type='submit' and contains(@value, 'Save')]"
         view_profile_xpath = "//*[contains(@class, 'view-profile')]//a"
-        edit_xpath = "(//*[contains(@class, 'icon edit')])[1]"
-        save_confirm_xpath = "//*[text()='today' or text()='Today']"
+        edit_xpath = "(//*[contains(@class, 'icon edit')])[1] | //span[contains(text(), 'Edit')]"
+        save_confirm_xpath = "//*[contains(text(), 'today')] | //*[contains(text(), 'Today')]"
         close_xpath = "//*[contains(@class, 'crossIcon')]"
 
         if not wait_till_present(driver, view_profile_xpath, "XPATH", 20):
+            log_msg("Profile view link not found.", level=logging.WARNING)
             return
 
         prof_el = get_element(driver, view_profile_xpath, locator="XPATH")
         if prof_el: prof_el.click()
         
         # Humanize
-        time.sleep(randint(2, 4))
+        time.sleep(randint(3, 5))
         try_click(driver, close_xpath)
 
         if wait_till_present(driver, edit_xpath + " | " + save_xpath, "XPATH", 20):
+            # Case 1: Need to click Edit first
             if is_element_present(driver, By.XPATH, edit_xpath):
                 edit_el = get_element(driver, edit_xpath, locator="XPATH")
                 if edit_el: edit_el.click()
+                time.sleep(2)
 
-                wait_till_present(driver, mob_xpath, "XPATH", 10)
-                mob_el = get_element(driver, mob_xpath, locator="XPATH")
-                if mob_el:
-                    mob_el.clear()
-                    mob_el.send_keys(mob)
-                
-                save_el = get_element(driver, save_xpath, locator="XPATH")
-                if save_el: save_el.send_keys(Keys.ENTER)
+            # Case 2: In the edit form
+            wait_till_present(driver, mob_xpath, "XPATH", 10)
+            mob_el = get_element(driver, mob_xpath, locator="XPATH", silent=True)
+            if mob_el:
+                mob_el.clear()
+                mob_el.send_keys(mob)
+                time.sleep(1)
+            
+            save_el = get_element(driver, save_xpath, locator="XPATH")
+            if save_el: 
+                save_el.send_keys(Keys.ENTER)
+                log_msg("Profile: Save triggered.")
 
-                if wait_till_present(driver, save_confirm_xpath, "XPATH", 10):
-                    log_msg("Profile Sync: SUCCESS")
-                else:
-                    log_msg("Profile Sync: Verification timed out.", level=logging.WARNING)
+            # Wait for confirmation (check if updated today)
+            time.sleep(3)
+            if wait_till_present(driver, save_confirm_xpath, "XPATH", 15):
+                log_msg("Profile Sync: SUCCESS")
+            else:
+                log_msg("Profile Sync: Verification timed out (check results manually).", level=logging.WARNING)
 
-            elif is_element_present(driver, By.XPATH, save_xpath):
-                mob_el = get_element(driver, mob_xpath, locator="XPATH")
-                if mob_el:
-                    mob_el.clear()
-                    mob_el.send_keys(mob)
-    
-                save_el = get_element(driver, save_xpath, locator="XPATH")
-                if save_el: save_el.send_keys(Keys.ENTER)
-
-                if wait_till_present(driver, "confirmMessage", locator="ID", timeout=10):
-                    log_msg("Profile Sync: SUCCESS")
-                else:
-                    log_msg("Profile Sync: Verification timed out.", level=logging.WARNING)
-
-        time.sleep(randint(3, 5))
+        time.sleep(randint(2, 4))
 
     except Exception as e:
         catch(e)
