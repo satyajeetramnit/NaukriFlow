@@ -1,0 +1,56 @@
+name: Daily NaukriFlow Automation
+
+on:
+  schedule:
+    # Runs at 09:00 UTC every day. You can adjust this schedule.
+    # Format: minute hour day(month) month day(week)
+    - cron: '0 9 * * *'
+  
+  # Allows you to securely run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # caching pip dependencies
+          
+      - name: Install Google Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg
+          sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt update
+          sudo apt install google-chrome-stable
+          
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Inject Secure Accounts Configuration
+        # This step pulls your JSON from GitHub Secrets and writes it to the local file
+        env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
+        run: |
+          echo "$ACCOUNTS_JSON" > accounts.json
+          
+      - name: Run NaukriFlow
+        env:
+          RUN_HEADLESS: true
+        run: |
+          python naukri.py
+          
+      - name: Archive modified resumes
+        # Optional: Uncomment if you want to be able to download the modified PDFs from the Run logs
+        # uses: actions/upload-artifact@v4
+        # with:
+        #   name: modified-resumes
+        #   path: /*_modified.pdf

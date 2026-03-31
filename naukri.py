@@ -37,7 +37,7 @@ import constants
 updatePDF = False
 
 # If Headless = True, script runs Chrome in headless mode without visible GUI
-headless = False
+headless = os.getenv("RUN_HEADLESS", "false").lower() == "true"
 
 # ----- No other changes required -----
 
