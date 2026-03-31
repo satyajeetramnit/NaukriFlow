@@ -34,7 +34,7 @@ from selenium_stealth import stealth
 import constants
 
 # False if you dont want to add Random HIDDEN chars to your resume
-updatePDF = False
+updatePDF = True
 
 # If Headless = True, script runs Chrome in headless mode without visible GUI
 headless = os.getenv("RUN_HEADLESS", "false").lower() == "true"
