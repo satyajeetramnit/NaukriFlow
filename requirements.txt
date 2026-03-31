@@ -1,0 +1,4 @@
+reportlab==4.4.10
+selenium==4.41.0
+pypdf==6.9.2
+python-dotenv==1.0.1
