@@ -6,31 +6,32 @@
 ## System Architecture
 
 The script follows a sequential execution flow:
-1.  **Stealth Setup**: Initializes Selenium WebDriver with the `selenium-stealth` library to bypass common bot detection mechanisms.
-2.  **Auth Layer**: Loads credentials from a secure `.env` file and performs a login.
-3.  **Profile Touch**: 
+1.  **Configuration Load**: Evaluates the `accounts.json` registry. If unavailable, falls back to the `.env` singleton. The loop dynamically processes each `account` context.
+2.  **Stealth Setup**: Initializes a fresh Selenium WebDriver per account iteration using the `selenium-stealth` library to bypass common bot detection mechanisms.
+3.  **Auth Layer**: Executes Naukri login using the injected context.
+4.  **Profile Touch**: 
     - Navigates to the Profile page.
-    - Updates the "Mobile Number" field to trigger a profile save event.
-4.  **Resume Management (Optional)**:
-    - Modifies the PDF resume by adding invisible random characters to ensure the file hash is different.
-    - Re-uploads the modified resume to Naukri's servers.
-5.  **Session Termination**: Logs out and safely closes the browser.
+    - Clicks the edit icon on the Basic Details modal and triggers a "Save" event to legally refresh the "Last Updated" timestamp without destructive edits.
+5.  **Resume Management (Optional)**:
+    - If `updatePDF = True`, modifies the PDF located at `original_resume_path` by appending invisible random strings to alter the file hash, saving it to `modified_resume_path`.
+    - Uploads the designated active resume to Naukri's servers.
+6.  **Session Termination**: Logs out, safely closes the browser, and tears down the driver to prevent session bleed-over before processing the next account.
 
 ## Core Components
 
 ### 1. `naukri.py` (Main Logic)
-- **`naukriLogin()`**: Orchestrates the login process, handles pop-ups, and verify successful entry.
-- **`UpdateProfile()`**: Selects the profile edit section and triggers a "Sync" action.
-- **`UpdateResume()`**: Uses `reportlab` and `pypdf` to inject random hidden text into the PDF.
-- **`UploadResume()`**: Locates the file input element and uploads the resume with verification.
+- **`naukriLogin(account)`**: Orchestrates the login process using specific dictionary contexts, handles post-login pop-ups, and checks DOM markers for success.
+- **`UpdateProfile(driver)`**: Locates the *Basic Details* edit modal and triggers a "Sync" action.
+- **`UpdateResume(account)`**: Uses `reportlab` and `pypdf` to inject random hidden text into the PDF, ensuring unique hashes for ATS.
+- **`UploadResume(driver, path)`**: Locates the hidden file input element and uploads the resume dynamically.
 
 #### Utility Functions
+- **`get_accounts()`**: Bootstraps the execution array, prioritizing a localized `accounts.json` over a legacy `.env`.
 - **`try_click(xpath)`**: Silently handles optional UI elements (popups/skip buttons) without noisy error logs.
-- **`get_element()`**: A robust wrapper for finding elements with modern timeouts.
-- **`pathlib` integration**: All file system operations use the object-oriented `Path` library for cross-platform reliability.
+- **`get_element(locator)`**: A robust wrapper for finding elements with modern, variable timeouts.
 
-### 2. `constants.py` (Configuration)
-- Modernized loader that prioritizes environment variables from `.env` over hardcoded fallbacks.
+### 2. `constants.py` (Configuration Fallbacks)
+- Modernized loader that pulls environment variables from `.env` acting strictly as the single-user fallback utility.
 
 ### 3. `test.py` (Unit Testing)
 - Unit tests for the PDF modification engine.
@@ -56,7 +57,13 @@ The script follows a sequential execution flow:
 - `reportlab`: PDF hidden layer generation.
 - `pypdf`: PDF merging/manipulation.
 
+## Deployment & Automation (Cloud vs Local)
+
+Given sophisticated bot-checker platforms like Cloudflare and internally developed systems by Naukri, extreme care must be taken in *where* this script runs:
+
+- **Local Cron (Recommended)**: Because residential IPs are heavily trusted, running this via a scheduler (like `cron` on macOS/Linux or Task Scheduler on Windows) locally on your laptop guarantees the highest success rate. 
+- **Cloud Workflows (Deprecated/Not Recommended)**: Running on GitHub Actions, DigitalOcean, or AWS EC2 will consistently flag IP blocks. The script executes perfectly, but Naukri aggressively throws an inescapable OTP / Two-Factor Authentication requirement when accessed via Datacenter IP ranges, locking out headless executions.
+
 ## Troubleshooting
 - **Chrome Version Mismatch**: Ensure your Chrome browser is updated. Selenium 4.x handles drivers automatically, but extreme version gaps may cause issues.
-- **Access Denied**: If you see an "Access Denied" page from Naukri, follow the **Stealth Mode** instructions or ensure you are not running from a blocked IP range.
-- **Headless Detection**: Some advanced bot-checkers still detect headless browsers. If login fails repeatedly, try running with `headless = False` in `naukri.py`.
+- **Headless Detection / OTP Locks**: If you are trying to run the script remotely, you will likely hit an OTP requirement. Ensure you are running locally. You can toggle the UI visibility by passing the environment variable `export RUN_HEADLESS=true`.
