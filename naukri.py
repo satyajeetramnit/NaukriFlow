@@ -342,62 +342,64 @@ def naukriLogin(headless=False):
 
 def UpdateProfile(driver: webdriver.Chrome) -> None:
     try:
-        # Modernized XPaths for Profile Page
-        mob_xpath = "//*[@name='mobile'] | //*[@id='mob_number'] | //input[contains(@placeholder, 'mobile')]"
-        save_xpath = "//button[@id='saveBasicDetailsBtn'] | //button[@type='submit' and contains(@value, 'Save')]"
-        view_profile_xpath = "//*[contains(@class, 'view-profile')]//a"
-        edit_xpath = "(//*[contains(@class, 'icon edit')])[1] | //span[contains(text(), 'Edit')]"
-        save_confirm_xpath = "//*[contains(text(), 'today')] | //*[contains(text(), 'Today')]"
-        close_xpath = "//*[contains(@class, 'crossIcon')]"
-
-        if not wait_till_present(driver, view_profile_xpath, "XPATH", 20):
-            log_msg("Profile view link not found.", level=logging.WARNING)
-            return
-
-        prof_el = get_element(driver, view_profile_xpath, locator="XPATH")
-        if prof_el: prof_el.click()
+        # --- Modernized & Precise XPaths for Basic Details ---
+        # 1. Targeting the 'Edit' button specifically within the Basic Details context
+        edit_xpath = (
+            "//*[contains(text(), 'Basic details')]/parent::div//*[contains(@class, 'edit') or contains(@class, 'icon')]"
+            " | (//*[contains(@class, 'icon edit')])[1]"
+        )
         
-        # Humanize
+        # 2. Form fields
+        mob_xpath = "//*[@id='mob_number'] | //*[@name='mobile'] | //input[contains(@placeholder, 'mobile')]"
+        save_xpath = "//*[@id='saveBasicDetailsBtn'] | //button[@type='submit' and contains(@value, 'Save')]"
+        
+        # 3. Verification & Helpers
+        save_confirm_xpath = "//*[contains(text(), 'today')] | //*[contains(text(), 'Today')] | //div[contains(@class, 'confirm')]"
+        close_xpath = "//*[contains(@class, 'crossIcon')] | //*[contains(@class, 'close')]"
+
+        log_msg("Navigating to Profile...")
+        driver.get(constants.NAUKRI_PROFILE_URL)
         time.sleep(randint(3, 5))
+
+        # Handle any initial popups
         try_click(driver, close_xpath)
 
-        if wait_till_present(driver, edit_xpath + " | " + save_xpath, "XPATH", 20):
-            # Case 1: Need to click Edit first
-            if is_element_present(driver, By.XPATH, edit_xpath):
-                edit_el = get_element(driver, edit_xpath, locator="XPATH")
-                if edit_el: 
-                    log_msg(f"Interacting with Edit el: {edit_el.tag_name} | Visible: {edit_el.is_displayed()}", level=logging.DEBUG)
-                    safe_click(driver, edit_el)
+        if wait_till_present(driver, edit_xpath, "XPATH", 20):
+            edit_el = get_element(driver, edit_xpath, locator="XPATH")
+            if edit_el: 
+                log_msg(f"Targeting Edit Button: {edit_el.tag_name} (Visible: {edit_el.is_displayed()})", level=logging.DEBUG)
+                safe_click(driver, edit_el)
                 time.sleep(3)
 
-            # Case 2: In the edit form
+            # Wait for form fields
             if wait_till_present(driver, mob_xpath, "XPATH", 10):
-                mob_el = get_element(driver, mob_xpath, locator="XPATH", silent=False)
+                mob_el = get_element(driver, mob_xpath, locator="XPATH")
                 if mob_el:
+                    log_msg("Updating Mobile Number field...")
                     mob_el.clear()
                     mob_el.send_keys(mob)
                     time.sleep(1)
+                
+                save_el = get_element(driver, save_xpath, locator="XPATH")
+                if save_el: 
+                    log_msg("Triggering Save Details...")
+                    safe_click(driver, save_el)
             else:
-                log_msg("Form detail (mobile) not visible in time.", level=logging.DEBUG)
+                log_msg("Form detail (mobile) not visible in time.", level=logging.WARNING)
             
-            save_el = get_element(driver, save_xpath, locator="XPATH")
-            if save_el: 
-                safe_click(driver, save_el)
-                log_msg("Profile Sync: Save triggered.")
-
-            # Wait for confirmation (check if updated today)
-            time.sleep(3)
-            # Check for success indicators
+            # Final Verification
+            time.sleep(4)
             found_confirm = False
-            for selector in [save_confirm_xpath, "confirmMessage"]:
-                if wait_till_present(driver, selector, "XPATH" if "save" in selector else "ID", timeout=5):
+            for selector in [save_confirm_xpath, "confirmMessage", "//*[contains(@class, 'success')]"]:
+                if wait_till_present(driver, selector, "XPATH" if "/" in selector else "ID", timeout=5):
                     found_confirm = True
+                    log_msg(f"Confirmation found via: {selector}", level=logging.DEBUG)
                     break
             
             if found_confirm:
                 log_msg("Profile Sync: SUCCESS")
             else:
-                log_msg("Profile Sync: Verification timed out (check dashboard manually).", level=logging.WARNING)
+                log_msg("Profile Sync: Verification timed out (check results manually).", level=logging.WARNING)
 
         time.sleep(randint(2, 4))
 
