@@ -148,11 +148,30 @@ def try_click(
     try:
         el = get_element(driver, element_tag, locator=locator, timeout=timeout, silent=True)
         if el and el.is_displayed():
-            el.click()
+            safe_click(driver, el)
             return True
     except Exception:
         pass
     return False
+
+
+def safe_click(driver: webdriver.Chrome, element: WebElement) -> None:
+    """Perform a robust click, trying standard click, then JS click as fallback"""
+    try:
+        # 1. Scroll into view
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        time.sleep(0.5)
+        
+        # 2. Standard Click
+        element.click()
+    except (WebDriverException, Exception) as e:
+        log_msg(f"Standard click failed: {type(e).__name__}. Trying JS click...", level=logging.DEBUG)
+        # 3. JS Click Fallback
+        try:
+            driver.execute_script("arguments[0].click();", element)
+        except Exception as js_e:
+            log_msg(f"JS click also failed: {js_e}", level=logging.ERROR)
+            raise js_e
 
 def Logout(driver: webdriver.Chrome) -> bool:
     """Logout from Naukri session with modernized selectors"""
@@ -183,9 +202,7 @@ def Logout(driver: webdriver.Chrome) -> bool:
             el = get_element(driver, xpath, locator="XPATH", timeout=5, silent=True)
             if el and el.is_displayed():
                 try:
-                    driver.execute_script("arguments[0].scrollIntoView(true);", el)
-                    time.sleep(0.5)
-                    el.click()
+                    safe_click(driver, el)
                     log_msg("Logout: SUCCESS")
                     time.sleep(2)
                     return True
@@ -348,28 +365,39 @@ def UpdateProfile(driver: webdriver.Chrome) -> None:
             # Case 1: Need to click Edit first
             if is_element_present(driver, By.XPATH, edit_xpath):
                 edit_el = get_element(driver, edit_xpath, locator="XPATH")
-                if edit_el: edit_el.click()
-                time.sleep(2)
+                if edit_el: 
+                    log_msg(f"Interacting with Edit el: {edit_el.tag_name} | Visible: {edit_el.is_displayed()}", level=logging.DEBUG)
+                    safe_click(driver, edit_el)
+                time.sleep(3)
 
             # Case 2: In the edit form
-            wait_till_present(driver, mob_xpath, "XPATH", 10)
-            mob_el = get_element(driver, mob_xpath, locator="XPATH", silent=True)
-            if mob_el:
-                mob_el.clear()
-                mob_el.send_keys(mob)
-                time.sleep(1)
+            if wait_till_present(driver, mob_xpath, "XPATH", 10):
+                mob_el = get_element(driver, mob_xpath, locator="XPATH", silent=False)
+                if mob_el:
+                    mob_el.clear()
+                    mob_el.send_keys(mob)
+                    time.sleep(1)
+            else:
+                log_msg("Form detail (mobile) not visible in time.", level=logging.DEBUG)
             
             save_el = get_element(driver, save_xpath, locator="XPATH")
             if save_el: 
-                save_el.send_keys(Keys.ENTER)
-                log_msg("Profile: Save triggered.")
+                safe_click(driver, save_el)
+                log_msg("Profile Sync: Save triggered.")
 
             # Wait for confirmation (check if updated today)
             time.sleep(3)
-            if wait_till_present(driver, save_confirm_xpath, "XPATH", 15):
+            # Check for success indicators
+            found_confirm = False
+            for selector in [save_confirm_xpath, "confirmMessage"]:
+                if wait_till_present(driver, selector, "XPATH" if "save" in selector else "ID", timeout=5):
+                    found_confirm = True
+                    break
+            
+            if found_confirm:
                 log_msg("Profile Sync: SUCCESS")
             else:
-                log_msg("Profile Sync: Verification timed out (check results manually).", level=logging.WARNING)
+                log_msg("Profile Sync: Verification timed out (check dashboard manually).", level=logging.WARNING)
 
         time.sleep(randint(2, 4))
 
