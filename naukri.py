@@ -343,18 +343,14 @@ def naukriLogin(headless=False):
 def UpdateProfile(driver: webdriver.Chrome) -> None:
     try:
         # --- Modernized & Precise XPaths for Basic Details ---
-        # 1. Targeting the 'Edit' button specifically within the Basic Details context
-        edit_xpath = (
-            "//*[contains(text(), 'Basic details')]/parent::div//*[contains(@class, 'edit') or contains(@class, 'icon')]"
-            " | (//*[contains(@class, 'icon edit')])[1]"
-        )
+        # 1. Primary Edit button is now an <em> tag in the new Naukri UI
+        edit_xpath = "//em[text()='editOneTheme'] | //div[contains(@class, 'name-section')]//em"
         
-        # 2. Form fields
-        mob_xpath = "//*[@id='mob_number'] | //*[@name='mobile'] | //input[contains(@placeholder, 'mobile')]"
-        save_xpath = "//*[@id='saveBasicDetailsBtn'] | //button[@type='submit' and contains(@value, 'Save')]"
+        # 2. Save button in the modal
+        save_xpath = "//button[@id='saveBasicDetailsBtn']"
         
         # 3. Verification & Helpers
-        save_confirm_xpath = "//*[contains(text(), 'today')] | //*[contains(text(), 'Today')] | //div[contains(@class, 'confirm')]"
+        save_confirm_xpath = "//*[contains(text(), 'today')] | //*[contains(text(), 'Today')]"
         close_xpath = "//*[contains(@class, 'crossIcon')] | //*[contains(@class, 'close')]"
 
         log_msg("Navigating to Profile...")
@@ -367,33 +363,29 @@ def UpdateProfile(driver: webdriver.Chrome) -> None:
         if wait_till_present(driver, edit_xpath, "XPATH", 20):
             edit_el = get_element(driver, edit_xpath, locator="XPATH")
             if edit_el: 
-                log_msg(f"Targeting Edit Button: {edit_el.tag_name} (Visible: {edit_el.is_displayed()})", level=logging.DEBUG)
+                log_msg(f"Targeting Basic Details Edit: {edit_el.tag_name} (Visible: {edit_el.is_displayed()})", level=logging.DEBUG)
                 safe_click(driver, edit_el)
                 time.sleep(3)
 
-            # Wait for form fields
-            if wait_till_present(driver, mob_xpath, "XPATH", 10):
-                mob_el = get_element(driver, mob_xpath, locator="XPATH")
-                if mob_el:
-                    log_msg("Updating Mobile Number field...")
-                    mob_el.clear()
-                    mob_el.send_keys(mob)
-                    time.sleep(1)
-                
+            # In the current UI, opening the modal and clicking 'Save' updates the timestamp.
+            # We avoid the mobile redirection link for stability.
+            if wait_till_present(driver, save_xpath, "XPATH", 10):
                 save_el = get_element(driver, save_xpath, locator="XPATH")
                 if save_el: 
-                    log_msg("Triggering Save Details...")
+                    # Ensure save button is visible in modal viewport
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", save_el)
+                    time.sleep(0.5)
+                    log_msg("Refreshing Profile Timestamp (Clicking Save)...")
                     safe_click(driver, save_el)
             else:
-                log_msg("Form detail (mobile) not visible in time.", level=logging.WARNING)
+                log_msg("Basic Details Modal did not appear in time.", level=logging.WARNING)
             
             # Final Verification
             time.sleep(4)
             found_confirm = False
-            for selector in [save_confirm_xpath, "confirmMessage", "//*[contains(@class, 'success')]"]:
+            for selector in [save_confirm_xpath, "confirmMessage"]:
                 if wait_till_present(driver, selector, "XPATH" if "/" in selector else "ID", timeout=5):
                     found_confirm = True
-                    log_msg(f"Confirmation found via: {selector}", level=logging.DEBUG)
                     break
             
             if found_confirm:
