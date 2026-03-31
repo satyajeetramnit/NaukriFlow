@@ -80,6 +80,17 @@ Open your terminal and type `crontab -e`. Add the following lines to run the scr
 30 13 * * * cd /path/to/NaukriFlow && RUN_HEADLESS=true /path/to/NaukriFlow/.venv/bin/python naukri.py >> cron.log 2>&1
 ```
 
+### Local Windows Auto-Pilot (Task Scheduler Setup)
+1. Open the Start menu and search for **Task Scheduler**.
+2. Click **Create Basic Task** on the right sidebar and name it "NaukriFlow Automated".
+3. Set the trigger to **Daily** and choose your run time (e.g., 8:00 AM).
+4. Set the Action to **Start a program**.
+5. In the **Program/script** box, put the absolute path to your Python executable (e.g., `C:\path\to\NaukriFlow\.venv\Scripts\python.exe`).
+6. In the **Add arguments** box, type `naukri.py`.
+7. In the **Start in** box, put the absolute path to your project folder (e.g., `C:\path\to\NaukriFlow\`).
+8. *Tip for Headless Mode*: To run invisibly on Windows, append a new line to your `.env` file reading `RUN_HEADLESS=true`.
+
+
 ## 📖 Documentation
 For a deep dive into the architecture and utility functions of **NaukriFlow**, check out the [DOCUMENTATION.md](DOCUMENTATION.md).
 

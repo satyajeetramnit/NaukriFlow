@@ -1,13 +1,13 @@
 name: Daily NaukriFlow Automation
 
 on:
-  schedule:
-    # Runs at 09:00 UTC every day. You can adjust this schedule.
-    # Format: minute hour day(month) month day(week)
-    - cron: '0 9 * * *'
+  # Cloud scheduled automation is currently disabled due to Naukri OTP/Data-Center blocks.
+  # schedule:
+  #   - cron: '0 9 * * *'
   
-  # Allows you to securely run this workflow manually from the Actions tab
+  # Allows you to securely run this workflow manually from the Actions tab (for debugging only)
   workflow_dispatch:
+
 
 jobs:
   run-automation:
